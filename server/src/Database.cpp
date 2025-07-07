@@ -210,6 +210,132 @@ bool Database::rename(const std::string& oldKey, const std::string& newKey) {
     return found;
 }
 
+ssize_t Database::llen(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (listStore.find(key) != listStore.end()) {
+        return listStore[key].size();
+    }
+    else {
+        return -1;
+    }
+}
+
+std::string Database::lindex(const std::string& key, int index) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (listStore.find(key) != listStore.end()) {
+        const auto& list = listStore[key];
+        if (index < 0) {
+            index += list.size(); // Handle negative index
+        }
+        if (index >= 0 && index < static_cast<int>(list.size())) {
+            return list[index];
+        }
+    }
+    return ""; // Return empty string if key does not exist or index is out of range
+}
+
+std::string Database::lpop(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (listStore.find(key) != listStore.end() && !listStore[key].empty()) {
+        std::string value = listStore[key].front(); // Get the first element
+        listStore[key].erase(listStore[key].begin()); // Remove the first element
+        return value;
+    }
+    return ""; // Return empty string if key does not exist or list is empty
+}
+
+std::string Database::rpop(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (listStore.find(key) != listStore.end() && !listStore[key].empty()) {
+        std::string value = listStore[key].back(); // Get the last element
+        listStore[key].pop_back(); // Remove the last element
+        return value;
+    }
+    return ""; // Return empty string if key does not exist or list is empty
+}
+
+bool Database::lset(const std::string& key, int index, const std::string& value) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (listStore.find(key) != listStore.end()) {
+        std::vector<std::string>& list = listStore[key]; // Use reference to modify in place
+        if (index < 0) {
+            index = static_cast<int>(list.size()) + index; // Support negative indexing
+        }
+        if (index < 0 || index >= static_cast<int>(list.size())) {
+            return false;
+        }
+        list[index] = value;
+        return true;
+    }
+    return false; // Key not found
+}
+
+void Database::lpush(const std::string& key, const std::string& value) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    listStore[key].insert(listStore[key].begin(), value);
+}
+
+void Database::rpush(const std::string& key, const std::string& value) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    listStore[key].push_back(value);
+}
+
+int Database::lrem(const std::string& key, int count, const std::string& value) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    int removedCount = 0;
+    if (listStore.find(key) != listStore.end()) {
+        std::vector<std::string> list = listStore[key];
+        if (count == 0) {
+            for (auto it = list.begin(); it != list.end();) {
+                if (*it == value) {
+                    it = list.erase(it); // Remove the item and get the next iterator
+                    removedCount++;
+                } else {
+                    ++it;
+                }
+            }
+        }
+        else if (count < 0) {
+            for (auto it = list.rbegin(); it != list.rend() && removedCount < -count;) {
+                if (*it == value) {
+                    auto normalIt = it.base();
+                    --normalIt;
+                    normalIt = list.erase(normalIt); // Remove the item and get the next iterator
+                    it = std::vector<std::string>::reverse_iterator(normalIt); // Update reverse iterator
+                    removedCount++;
+                } else {
+                    ++it;
+                }
+            }
+        } else {
+            for (auto it = list.begin(); it != list.end() && removedCount < count;) {
+                if (*it == value) {
+                    it = list.erase(it); // Remove the item and get the next iterator
+                    removedCount++;
+                } else {
+                    ++it;
+                }
+            }
+        }
+
+        if (list.empty()) {
+            listStore.erase(key); // Remove the key if the list is empty
+        } else {
+            listStore[key] = list; // Update the list in the store
+        }
+    }
+
+    return removedCount; // Return the number of removed items
+}
+
+std::vector<std::string> Database::lget(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (listStore.find(key) != listStore.end()) {
+        return listStore[key]; // Return the list if it exists
+    }
+    return {};
+}
+
 bool Database::expiry(const std::string& key, int seconds) {
     std::lock_guard<std::mutex> lock(db_mutex);
     purgeExpired();

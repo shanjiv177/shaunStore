@@ -5,8 +5,9 @@
 #include <vector>
 #include <algorithm>
 #include <iostream>
+#include <unordered_map>
 
-CommandHandler::CommandHandler() {}
+CommandHandler::CommandHandler(){};
 
 bool CommandHandler::parseSimpleString(const std::string& buffer, std::vector<std::string>& parsedCommand, size_t& pos) {
     if (pos >= buffer.size() || buffer[pos] != '+') {
@@ -244,6 +245,108 @@ std::string CommandHandler::handleExpiry(const std::vector<std::string>& args, D
     return (expirySet ? "+OK\r\n" : "-ERR: Key does not exist\r\n"); // RESP format for EXPIRE command
 }
 
+std::string CommandHandler::handleLlen(const std::vector<std::string> &args, Database& db) {
+    if (args.size() < 2) 
+        return "-Error: LLEN requires key\r\n";
+
+    ssize_t len = db.llen(args[1]);
+    if (len < 0) 
+        return "-Error: Key does not exist or is not a list\r\n";
+    return ":" + std::to_string(len) + "\r\n";
+}
+
+std::string CommandHandler::handleLget(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: LGET requires key\r\n";
+
+    std::vector<std::string> list = db.lget(args[1]);
+    if (list.empty()) 
+        return "-Error: Key does not exist or is not a list\r\n";
+    std::ostringstream response;
+    response << "*" << list.size() << "\r\n";
+    for (const auto &item : list) {
+        response << "$" << item.size() << "\r\n" << item << "\r\n";
+    }
+    return response.str(); // RESP format for LGET command
+}
+
+std::string CommandHandler::handleLpush(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 3) 
+        return "-Error: LPUSH requires key and value\r\n";
+
+    for (size_t i = 2; i < args.size(); ++i) {
+        db.lpush(args[1], args[i]);
+    }
+    ssize_t len = db.llen(args[1]);
+    return ":" + std::to_string(len) + "\r\n";
+}
+
+std::string CommandHandler::handleRpush(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 3) 
+        return "-Error: RPUSH requires key and value\r\n";
+
+    for (size_t i = 2; i < args.size(); ++i) {
+        db.rpush(args[1], args[i]);
+    }
+    ssize_t len = db.llen(args[1]);
+    return ":" + std::to_string(len) + "\r\n";
+}
+
+std::string CommandHandler::handleLpop(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: LPOP requires key\r\n";
+
+    std::string value = db.lpop(args[1]);
+    if (value.empty()) 
+        return "$-1\r\n"; // Null bulk string for non-existing key
+    return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n"; // RESP format for LPOP command
+}
+
+std::string CommandHandler::handleRpop(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: RPOP requires key\r\n";
+    
+    std::string value = db.rpop(args[1]);
+    if (value.empty()) 
+        return "$-1\r\n"; // Null bulk string for non-existing key
+    return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n"; // RESP format for RPOP command
+}
+
+std::string CommandHandler::handleLrem(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 4) 
+        return "-Error: LREM requires key, count and value\r\n";
+
+    try {
+        int count = std::stoi(args[2]);
+        int removed = db.lrem(args[1], count, args[3]);
+        return ":" + std::to_string(removed) + "\r\n";
+    } catch (const std::exception&) {
+        return "-Error: Invalid count\r\n";
+    }
+}
+
+std::string CommandHandler::handleLindex(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 3) 
+        return "-Error: LINDEX requires key and index\r\n";
+
+    std::string value = db.lindex(args[1], std::stoi(args[2]));
+
+    if (value.empty()) {
+        return "$-1\r\n"; // Null bulk string for non-existing key or index out of range
+    }
+    return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n"; // RESP format for LINDEX command
+}
+
+std::string CommandHandler::handleLset(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 4) 
+        return "-Error: LSET requires key, index and value\r\n";
+
+    if (!db.lset(args[1], std::stoi(args[2]), args[3])) {
+        return "-Error: Key does not exist or index out of range\r\n"; // Return error in RESP format
+    }
+    return "+OK\r\n"; // RESP format for successful LSET command
+}
+
 
 // Handles the  command and returns the response.
 std::string CommandHandler::handleCommand(const std::vector<std::string>& parsedCommand) {
@@ -253,41 +356,53 @@ std::string CommandHandler::handleCommand(const std::vector<std::string>& parsed
 
     std::string cmd = parsedCommand[0];
     std::transform(cmd.begin(), cmd.end(), cmd.begin(), ::tolower);
-
-    std::ostringstream response;
-
     // Connect to DB
     Database& db = Database::getInstance();
 
     // Handle the command
     if (cmd == "ping") {
-        response << handlePing(parsedCommand, db);
+        return handlePing(parsedCommand, db);
     } else if (cmd == "echo") {
-        response << handleEcho(parsedCommand, db);
+        return handleEcho(parsedCommand, db);
     } else if (cmd == "flushall") {
-        response << handleFlushAll(parsedCommand, db);
+        return handleFlushAll(parsedCommand, db);
     } else if (cmd == "set") {
-        response << handleSet(parsedCommand, db);
+        return handleSet(parsedCommand, db);
     } else if (cmd == "get") {
-        response << handleGet(parsedCommand, db);
+        return handleGet(parsedCommand, db);
     } else if (cmd == "keys") {
-        response << handleKeys(parsedCommand, db);
+        return handleKeys(parsedCommand, db);
     } else if (cmd == "type") {
-        response << handleType(parsedCommand, db);
+        return handleType(parsedCommand, db);
     } else if (cmd == "del") {
-        response << handleDel(parsedCommand, db);
+        return handleDel(parsedCommand, db);
     } else if (cmd == "exists") {
-        response << handleExists(parsedCommand, db);
+        return handleExists(parsedCommand, db);
     } else if (cmd == "rename") {
-        response << handleRename(parsedCommand, db);
+        return handleRename(parsedCommand, db);
     } else if (cmd == "expire" || cmd == "ttl") {
-        response << handleExpiry(parsedCommand, db);
-    }
-    else {
-        response << "-ERR: Unknown command '" << cmd << "'\r\n"; // Return error in RESP format
-    }
-
-    return response.str();
+        return handleExpiry(parsedCommand, db);
+    } else if (cmd == "llen") {
+        return handleLlen(parsedCommand, db);
+    } else if (cmd == "lget") {
+        return handleLget(parsedCommand, db);
+    } else if (cmd == "lpush") {
+        return handleLpush(parsedCommand, db);
+    } else if (cmd == "rpush") {
+        return handleRpush(parsedCommand, db);
+    } else if (cmd == "lpop") {
+        return handleLpop(parsedCommand, db);
+    } else if (cmd == "rpop") {
+        return handleRpop(parsedCommand, db);
+    } else if (cmd == "lrem") {
+        return handleLrem(parsedCommand, db);
+    } else if (cmd == "lindex") {
+        return handleLindex(parsedCommand, db);
+    } else if (cmd == "lset") {
+        return handleLset(parsedCommand, db);
+    } else {
+        return "-ERR: Unknown command\r\n";
+}
 }
 
 

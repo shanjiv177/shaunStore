@@ -10,7 +10,6 @@ class CommandHandler {
 
     private:
 
-
     public:
         CommandHandler();
 
@@ -19,14 +18,26 @@ class CommandHandler {
         std::string handlePing(const std::vector<std::string>& args, Database& db);
         std::string handleEcho(const std::vector<std::string>& args, Database& db);
         std::string handleFlushAll(const std::vector<std::string>& args, Database& db);
-        std::string handleSet(const std::vector<std::string>& args, Database& db);
-        std::string handleGet(const std::vector<std::string>& args, Database& db);
-        std::string handleKeys(const std::vector<std::string>& args, Database& db);
         std::string handleType(const std::vector<std::string>& args, Database& db);
         std::string handleDel(const std::vector<std::string>& args, Database& db);
         std::string handleExists(const std::vector<std::string>& args, Database& db);
         std::string handleRename(const std::vector<std::string>& args, Database& db);
         std::string handleExpiry(const std::vector<std::string>& args, Database& db);
+
+        std::string handleSet(const std::vector<std::string>& args, Database& db);
+        std::string handleGet(const std::vector<std::string>& args, Database& db);
+        std::string handleKeys(const std::vector<std::string>& args, Database& db);
+
+        std::string handleLlen(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleLget(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleLpush(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleRpush(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleLpop(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleRpop(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleLrem(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleLindex(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleLset(const std::vector<std::string> &processedCommand, Database &db);
+
 
         bool parseRESP(const std::string& buffer, std::vector<std::string>& tokens, size_t& parsedLen);
         bool parseArray(const std::string& buffer, std::vector<std::string>& tokens, size_t& pos);

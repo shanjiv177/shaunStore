@@ -44,7 +44,16 @@ class Database {
 
         void purgeExpired();
 
-        
+        // List Operations
+        ssize_t llen(const std::string& key);
+        std::string lindex(const std::string& key, int index);
+        void lpush(const std::string& key, const std::string& value);
+        void rpush(const std::string& key, const std::string& value);
+        std::string lpop(const std::string& key);
+        std::string rpop(const std::string& key);
+        int lrem(const std::string& key, int count, const std::string& value);
+        bool lset(const std::string& key, int index, const std::string& value);
+        std::vector<std::string> lget(const std::string& key);
 };
 
 #endif
