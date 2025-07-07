@@ -54,6 +54,16 @@ class Database {
         int lrem(const std::string& key, int count, const std::string& value);
         bool lset(const std::string& key, int index, const std::string& value);
         std::vector<std::string> lget(const std::string& key);
+
+        // Hash Operations
+        size_t hset(const std::vector<std::string>& args);
+        std::string hget(const std::string& key, const std::string& field);
+        size_t hdel(const std::string& key, const std::string& field);
+        bool hexists(const std::string& key, const std::string& field);
+        std::unordered_map<std::string, std::string> hgetall(const std::string& key);
+        std::vector<std::string> hkeys(const std::string& key);
+        std::vector<std::string> hvals(const std::string& key);
+        size_t hlen(const std::string& key);
 };
 
 #endif

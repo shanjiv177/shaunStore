@@ -336,6 +336,108 @@ std::vector<std::string> Database::lget(const std::string& key) {
     return {};
 }
 
+size_t Database::hset(const std::vector<std::string>& args) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    if (args.size() < 4 || args.size() % 2 != 0) {
+        return 0; // Invalid number of arguments
+    }
+
+    std::string key = args[1];
+    size_t numInserts = 0;
+
+    for (size_t i = 2; i < args.size(); i += 2) {
+        const std::string& field = args[i];
+        const std::string& value = args[i + 1];
+        hashStore[key][field] = value;
+        numInserts++;
+    }
+
+    return numInserts; // Return the number of fields inserted
+}
+
+std::string Database::hget(const std::string& key, const std::string& field) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        auto fieldIt = it->second.find(field);
+        if (fieldIt != it->second.end()) {
+            return fieldIt->second; // Return the value for the field
+        }
+    }
+    return ""; // Return empty string if key or field does not exist
+}
+
+size_t Database::hdel(const std::string& key, const std::string& field) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        auto& hashMap = it->second;
+        auto fieldIt = hashMap.find(field);
+        if (fieldIt != hashMap.end()) {
+            hashMap.erase(fieldIt);
+            if (hashMap.empty()) {
+                hashStore.erase(it);
+            }
+            return 1;
+        }
+    }
+    return 0; // Return 0 if key does not exist
+}
+
+bool Database::hexists(const std::string& key, const std::string& field) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        return it->second.find(field) != it->second.end(); // Check if field exists
+    }
+    return false; // Return false if key does not exist
+}
+
+std::unordered_map<std::string, std::string> Database::hgetall(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        return it->second; // Return the entire hash map
+    }
+    return {}; // Return empty map if key does not exist
+}
+
+std::vector<std::string> Database::hkeys(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        std::vector<std::string> keys;
+        for (const auto& field : it->second) {
+            keys.push_back(field.first); // Collect all field names
+        }
+        return keys; // Return the list of field names
+    }
+    return {}; // Return empty vector if key does not exist
+}
+
+std::vector<std::string> Database::hvals(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        std::vector<std::string> values;
+        for (const auto& field : it->second) {
+            values.push_back(field.second); // Collect all field values
+        }
+        return values; // Return the list of field values
+    }
+    return {}; // Return empty vector if key does not exist
+}
+
+size_t Database::hlen(const std::string& key) {
+    std::lock_guard<std::mutex> lock(db_mutex);
+    auto it = hashStore.find(key);
+    if (it != hashStore.end()) {
+        return it->second.size(); // Return the number of fields in the hash
+    }
+    return 0; // Return 0 if key does not exist
+}
+
+
 bool Database::expiry(const std::string& key, int seconds) {
     std::lock_guard<std::mutex> lock(db_mutex);
     purgeExpired();

@@ -38,6 +38,15 @@ class CommandHandler {
         std::string handleLindex(const std::vector<std::string> &processedCommand, Database &db);
         std::string handleLset(const std::vector<std::string> &processedCommand, Database &db);
 
+        std::string handleHset(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleHget(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleHdel(const std::vector<std::string> &processedCommand, Database &db); 
+        std::string handleHgetall(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleHexists(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleHkeys(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleHvals(const std::vector<std::string> &processedCommand, Database &db);
+        std::string handleHlen(const std::vector<std::string> &processedCommand, Database &db);
+
 
         bool parseRESP(const std::string& buffer, std::vector<std::string>& tokens, size_t& parsedLen);
         bool parseArray(const std::string& buffer, std::vector<std::string>& tokens, size_t& pos);

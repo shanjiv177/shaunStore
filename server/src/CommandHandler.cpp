@@ -347,6 +347,113 @@ std::string CommandHandler::handleLset(const std::vector<std::string> &args, Dat
     return "+OK\r\n"; // RESP format for successful LSET command
 }
 
+std::string CommandHandler::handleHset(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 4) 
+        return "-Error: HSET requires key, field and value\r\n";
+
+    size_t numInserts = db.hset(args);
+
+    if (numInserts <= 0) {
+        return "-Error: Key does not exist\r\n"; // Return error in RESP format
+    }
+    else {
+        return ":" + std::to_string(numInserts) + "\r\n"; // Multiple fields were added
+    }
+}
+
+std::string CommandHandler::handleHget(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 3) 
+        return "-Error: HGET requires key and field\r\n";
+
+    std::string value = db.hget(args[1], args[2]);
+    if (value.empty()) {
+        return "$-1\r\n"; // Null bulk string for non-existing key or field
+    }
+    return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n"; // RESP format for HGET command
+}
+
+std::string CommandHandler::handleHdel(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 3) 
+        return "-Error: HDEL requires key and field\r\n";
+
+    size_t numDeleted = db.hdel(args[1], args[2]);
+    if (numDeleted <= 0) {
+        return "-Error: Key does not exist or field does not exist\r\n";
+    }
+    return ":" + std::to_string(numDeleted) + "\r\n";
+}
+
+std::string CommandHandler::handleHexists(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 3) 
+        return "-Error: HEXISTS requires key and field\r\n";
+
+    bool exists = db.hexists(args[1], args[2]);
+    return (exists ? ":1\r\n" : ":0\r\n"); // RESP format for HEXISTS command
+}
+
+std::string CommandHandler::handleHgetall(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: HGETALL requires key\r\n";
+
+    std::unordered_map<std::string, std::string> hash = db.hgetall(args[1]);
+    if (hash.empty()) {
+        return "-Error: Key does not exist or is not a hash\r\n"; // Return error in RESP format
+    }
+
+    std::ostringstream response;
+    response << "*" << (hash.size() * 2) << "\r\n"; // Each field-value pair counts as two elements
+    for (const auto& pair : hash) {
+        response << "$" << pair.first.size() << "\r\n" << pair.first << "\r\n";
+        response << "$" << pair.second.size() << "\r\n" << pair.second << "\r\n";
+    }
+    return response.str(); // RESP format for HGETALL command
+}
+
+std::string CommandHandler::handleHkeys(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: HKEYS requires key\r\n";
+
+    std::vector<std::string> keys = db.hkeys(args[1]);
+    if (keys.empty()) {
+        return "-Error: Key does not exist or is not a hash\r\n"; // Return error in RESP format
+    }
+
+    std::ostringstream response;
+    response << "*" << keys.size() << "\r\n";
+    for (const auto& key : keys) {
+        response << "$" << key.size() << "\r\n" << key << "\r\n"; // RESP format for HKEYS command
+    }
+    return response.str();
+}
+
+std::string CommandHandler::handleHvals(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: HVALS requires key\r\n";
+
+    std::vector<std::string> values = db.hvals(args[1]);
+    if (values.empty()) {
+        return "-Error: Key does not exist or is not a hash\r\n"; // Return error in RESP format
+    }
+
+    std::ostringstream response;
+    response << "*" << values.size() << "\r\n";
+    for (const auto& value : values) {
+        response << "$" << value.size() << "\r\n" << value << "\r\n"; // RESP format for HVALS command
+    }
+    return response.str();
+}
+
+std::string CommandHandler::handleHlen(const std::vector<std::string> &args, Database &db) {
+    if (args.size() < 2) 
+        return "-Error: HLEN requires key\r\n";
+
+    ssize_t len = db.hlen(args[1]);
+    if (len < 0) {
+        return "-Error: Key does not exist or is not a hash\r\n"; // Return error in RESP format
+    }
+    return ":" + std::to_string(len) + "\r\n"; // RESP format for HLEN command
+}
+
 
 // Handles the  command and returns the response.
 std::string CommandHandler::handleCommand(const std::vector<std::string>& parsedCommand) {
@@ -400,9 +507,26 @@ std::string CommandHandler::handleCommand(const std::vector<std::string>& parsed
         return handleLindex(parsedCommand, db);
     } else if (cmd == "lset") {
         return handleLset(parsedCommand, db);
-    } else {
+    } else if (cmd == "hset") {
+        return handleHset(parsedCommand, db);
+    } else if (cmd == "hget") {
+        return handleHget(parsedCommand, db);
+    } else if (cmd == "hdel") {
+        return handleHdel(parsedCommand, db);
+    } else if (cmd == "hexists") {
+        return handleHexists(parsedCommand, db);
+    } else if (cmd == "hgetall") {
+        return handleHgetall(parsedCommand, db);
+    } else if (cmd == "hkeys") {
+        return handleHkeys(parsedCommand, db);
+    } else if (cmd == "hvals") {
+        return handleHvals(parsedCommand, db);
+    } else if (cmd == "hlen") {
+        return handleHlen(parsedCommand, db);
+    }
+    else {
         return "-ERR: Unknown command\r\n";
-}
+    }
 }
 
 
