@@ -1,27 +1,37 @@
 #include "../include/Server.h"
 #include "../include/CommandHandler.h"
+#include "../include/Database.h"
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <vector>
 #include <cstring>
-
 #include <sys/epoll.h> 
 #include <fcntl.h>
+#include <signal.h>
 
 static Server* server = nullptr;
 
+void signalHandler(int signum) {
+    if (server) {
+        std::cout << "Received signal " << signum << ". Shutting down server." << std::endl;
+        server->shutdown();
+    }
+    exit(signum);
+}
+
+void Server::setupSignalHandler() {
+    signal(SIGINT, signalHandler); // Handles Ctrl+C (Keyboard interrupt)
+}
+
 Server::Server(int port) : port(port), serverSocket(-1), running(true) {
     server = this;
+    setupSignalHandler();
 }
 
 void Server::shutdown() {
     running = false;
-    if (serverSocket != -1) {
-        close(serverSocket);
-        serverSocket = -1;
-    }
     std::cout << "Server shutdown complete." << std::endl;
 }
 
@@ -234,4 +244,12 @@ void Server::run() {
 
     close(epoll_fd);
     close(serverSocket);
+
+    if (Database::getInstance().dumpDatabase("dump")) {
+        std::cout << "Database dumped successfully." << std::endl;
+    } else {
+        std::cerr << "Failed to dump database." << std::endl;
+    }
+
+
 }

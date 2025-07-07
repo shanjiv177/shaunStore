@@ -28,6 +28,8 @@ class Server {
         
         void shutdown();
         void run();
+
+        void setupSignalHandler();
 };
 
 #endif
